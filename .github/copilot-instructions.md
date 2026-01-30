@@ -2,52 +2,13 @@
 
 Short, actionable guidance for AI coding agents working in this repository.
 
-## Big picture
-- This repo scaffolds an OctoFit Tracker split into `octofit-tracker/backend` (Django REST) and `octofit-tracker/frontend` (React). See [README.md](README.md) and setup instructions under [.github/instructions](.github/instructions).
-- Data flow: frontend (port 3000) calls backend API (port 8000). Backend uses Django ORM and is expected to persist data; a MongoDB service (port 27017) is referenced in the instructions but Django ORM should be used for schema/data work.
+## 🚧 Big picture
+- Monorepo split: `octofit-tracker/backend` (Django REST API) and `octofit-tracker/frontend` (React app / expected on port 3000).
+- Data flow: frontend → backend API (`/api/*`) on port **8000**. Backend uses **djongo** to talk to MongoDB (default host `mongodb://localhost:27017/`).
+- API implemented with DRF ModelViewSets. Root (`/`) returns `api_root` links for users, teams, activities, workouts, and leaderboard.
 
-## Essential developer workflows (explicit commands)
-- Create Python venv (do not change directories; point to paths):
-
-```bash
-python3 -m venv octofit-tracker/backend/venv
-source octofit-tracker/backend/venv/bin/activate
-pip install -r octofit-tracker/backend/requirements.txt
-```
-
-- Create / run React app (examples are in `.github/instructions/octofit_tracker_react_frontend.instructions.md`):
-
-```bash
-npx create-react-app octofit-tracker/frontend --template cra-template --use-npm
-npm install --prefix octofit-tracker/frontend
-npm start --prefix octofit-tracker/frontend  # runs on port 3000
-```
-
-- Run Django dev server (point at backend path):
-
-```bash
-python octofit-tracker/backend/manage.py runserver 0.0.0.0:8000
-```
-
-## Project-specific conventions and patterns
-- Never change directories inside commands when agent mode is running; always reference full paths inside this repo (see `.github/instructions/octofit_tracker_setup_project.instructions.md`).
-- Forwarded ports: 8000 (backend), 3000 (frontend), 27017 (mongodb) — do not suggest other public ports.
-- `settings.py` is expected to include environment-aware `ALLOWED_HOSTS` and Codespace URL handling; follow the snippet in `.github/instructions/octofit_tracker_django_backend.instructions.md` when modifying host logic.
-- Serializers: convert MongoDB `ObjectId` fields to strings in serializers (note in `.github/instructions/octofit_tracker_django_backend.instructions.md`).
-- Use Django ORM for database schema and data management — do not propose raw MongoDB scripts for data creation.
-
-## Integration points & external dependencies
-- Backend: Django + Django REST Framework and djongo/pymongo-related packages are listed in `.github/instructions/octofit_tracker_setup_project.instructions.md` (the repo expects a `requirements.txt`).
-- Frontend: React with `bootstrap` and `react-router-dom` are used in guidance; the main image asset is `docs/octofitapp-small.png`.
-- CI / automation: the repository contains GitHub Actions in [.github/workflows](.github/workflows). When adding or changing workflows, mirror existing step structure.
-
-## Code and PR guidance for agents
-- When changing backend settings or URLs, keep the Codespace-aware `base_url` pattern used in `urls.py` (see `.github/instructions/octofit_tracker_django_backend.instructions.md`).
-- Keep tests and runnable commands local to the `octofit-tracker` subfolders — provide commands that work from the repo root by referencing those paths.
-- Prefer small, focused patches that update only the necessary files; follow the repository’s step files under `.github/steps` for the intended setup sequence.
-
-## Examples (copyable snippets)
-- Create venv and install:
+## ✅ Essential developer workflows (explicit commands)
+- Create & activate Python venv (run from repo root; do NOT `cd`):
 
 ```bash
 python3 -m venv octofit-tracker/backend/venv
@@ -55,20 +16,73 @@ source octofit-tracker/backend/venv/bin/activate
 pip install -r octofit-tracker/backend/requirements.txt
 ```
 
-- Start services for manual testing (dev):
+- Database & dev server (Django):
 
 ```bash
-# Start backend
+# Make migrations and migrate
+python octofit-tracker/backend/manage.py makemigrations
+python octofit-tracker/backend/manage.py migrate
+# Populate test data (destructive - see warning)
+python octofit-tracker/backend/manage.py populate_db
+# Start dev server
 python octofit-tracker/backend/manage.py runserver 0.0.0.0:8000
-# Start frontend
-npm start --prefix octofit-tracker/frontend
 ```
 
-## Where to look first
-- High-level setup instructions: [.github/instructions/octofit_tracker_setup_project.instructions.md](.github/instructions/octofit_tracker_setup_project.instructions.md)
-- Backend guidance: [.github/instructions/octofit_tracker_django_backend.instructions.md](.github/instructions/octofit_tracker_django_backend.instructions.md)
-- Frontend guidance: [.github/instructions/octofit_tracker_react_frontend.instructions.md](.github/instructions/octofit_tracker_react_frontend.instructions.md)
-- CI steps and example workflows: [.github/workflows](.github/workflows)
+- Run tests:
+
+```bash
+python octofit-tracker/backend/manage.py test
+```
+
+> Tip: Always reference full paths from repo root when running commands in agent mode.
+
+## ⚠️ Project-specific rules & gotchas
+- **Never** change directories in commands when agent mode is running. Reference full paths instead.
+- Forwarded ports: **8000** (backend), **3000** (frontend), **27017** (MongoDB). Do not suggest other public ports.
+- `settings.py` contains Codespace-aware `ALLOWED_HOSTS` logic. Keep that pattern when making host-related edits.
+- The repository includes a `populate_db` management command (`octofit-tracker/backend/octofit_tracker/management/commands/populate_db.py`) that **drops** collections and inserts sample docs via `pymongo`. It's intended for tests/demos only — document its destructive nature in PRs.
+- Prefer Django ORM for creating and changing schema and seed data (the management command is an exception used by the exercise).
+
+## 🔧 Code patterns & examples (concrete)
+- ObjectId handling in serializers (`serializers.py`): uses a small `ObjectIdField` to convert ObjectId <-> string.
+
+```python
+class ObjectIdField(serializers.Field):
+    def to_representation(self, value):
+        return str(value)
+    def to_internal_value(self, data):
+        return ObjectId(data)
+```
+
+- Models use djongo fields (example: `Team.members` is `ArrayReferenceField` to `User`). Tests use `team.members.add(user)`.
+- API endpoints (see `urls.py`): `/api/users/`, `/api/teams/`, `/api/activities/`, `/api/workouts/`, `/api/leaderboard/`.
+- Management command: `python octofit-tracker/backend/manage.py populate_db` (drops collections; re-seeds data).
+
+## 🔁 CI / step-checks to be aware of
+- Workflows in `.github/workflows` validate step-specific changes. Step 3 checks for the presence of `djongo`, `octofit_db` in `settings.py`, and `populate_db.py`.
+- When adding/removing workflow steps, follow the existing step structure and use the same patterns for messages/comments.
+
+## 🧪 Tests & local verification
+- Tests live in `octofit-tracker/backend/octofit_tracker/tests.py` and use Django `TestCase`.
+- Tests may assume a MongoDB instance is reachable (djongo uses MongoDB), so ensure `mongod` is running on `localhost:27017` when running tests locally.
+- Quick manual API check:
+
+```bash
+curl http://localhost:8000/api/users/
+```
+
+## PR guidance for agents
+- Make small, focused changes. Prefer addressing a single step/issue per PR.
+- If you change seed or populate scripts, add clear docs and emphasize destructive behavior.
+- Follow `.github/steps/*` prompts and instructions when authoring exercise-focused changes.
+
+## Where to look first 🔎
+- Config & env: `octofit-tracker/backend/octofit_tracker/settings.py`
+- Models & API: `models.py`, `serializers.py`, `views.py`, `urls.py` (backend app)
+- Tests & admin: `tests.py`, `admin.py`
+- Management command: `management/commands/populate_db.py`
+- Step-based guidance: `.github/steps/*` and `.github/instructions/*`
 
 ---
-If any section is unclear or you'd like me to include extra examples (tests, debug commands, or a minimal run script), tell me which area to expand. 
+If any section is unclear or you'd like more examples (safer data-load patterns, extra test snippets, or sample curl/httpie requests), tell me which area to expand.
+ 
