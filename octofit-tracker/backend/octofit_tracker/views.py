@@ -27,10 +27,17 @@ class LeaderboardViewSet(viewsets.ModelViewSet):
 
 @api_view(['GET'])
 def api_root(request, format=None):
+    # Get the host from the request to support both localhost and codespace URLs
+    host = request.get_host()
+    scheme = request.scheme
+    
+    # Build the base URL
+    base_url = f"{scheme}://{host}/api"
+    
     return Response({
-        'users': reverse('user-list', request=request, format=format),
-        'teams': reverse('team-list', request=request, format=format),
-        'activities': reverse('activity-list', request=request, format=format),
-        'workouts': reverse('workout-list', request=request, format=format),
-        'leaderboard': reverse('leaderboard-list', request=request, format=format),
+        'users': f"{base_url}/users/",
+        'teams': f"{base_url}/teams/",
+        'activities': f"{base_url}/activities/",
+        'workouts': f"{base_url}/workouts/",
+        'leaderboard': f"{base_url}/leaderboard/",
     })
