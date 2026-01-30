@@ -14,8 +14,13 @@ function App() {
       <div className="App">
         <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
           <div className="container-fluid">
-            <Link className="navbar-brand fw-bold" to="/">
-              🐙 OctoFit Tracker
+            <Link className="navbar-brand fw-bold d-flex align-items-center" to="/">
+              <img
+                src="/octofitapp-small.png"
+                alt="OctoFit Logo"
+                className="navbar-logo me-2"
+              />
+              OctoFit Tracker
             </Link>
             <button
               className="navbar-toggler"
